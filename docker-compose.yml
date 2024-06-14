@@ -119,6 +119,7 @@ services:
     volumes:
       - icinga2:/data
       - ./icinga2.conf.d:/custom_data/custom.conf.d
+      - /opt/docker-compose-icinga/features-enabled/graphite.conf:/etc/icinga2/features-enabled/graphite.conf    
 
   icingadb:
     environment:
@@ -143,7 +144,7 @@ services:
     depends_on:
       - mysql
     environment:
-      icingaweb.enabledModules: director, icingadb, incubator
+      icingaweb.enabledModules: director, icingadb, incubator, graphite
       <<: [*icinga-db-web-config, *icinga-director-config, *icinga-web-config]
     logging: *default-logging
     image: icinga/icingaweb2
@@ -154,6 +155,7 @@ services:
     restart: on-failure
     volumes:
       - icingaweb:/data
+      - /opt/docker-compose-icinga/modules/graphite:/usr/share/icingaweb2/modules/graphite      
 
   mysql:
     image: mariadb:10.7
@@ -167,6 +169,35 @@ services:
     volumes:
       - mysql:/var/lib/mysql
       - ./env/mysql/:/docker-entrypoint-initdb.d/
+      
+  graphite:
+    image: graphiteapp/graphite-statsd:1.1.10-5
+    container_name: graphite
+    hostname: graphite
+    restart: always
+    ports:
+      # Carbon Plain Text
+      - "2003-2004:2003-2004"
+      # Carbon Relay
+      - "2013-2014:2013-2014"
+      # Carbon Aggregator
+      - "2023-2024:2023-2024"
+      # Carbon Statsd
+      - target: 8125
+        published: 8125
+        protocol: udp
+        mode: host
+      - "8126:8126"
+      # Graphite Webapp
+      - "127.0.0.1:8081:80"
+    volumes:
+      - /opt/graphite/conf:/opt/graphite/conf:Z
+      - /opt/graphite/data:/opt/graphite/storage:Z
+    environment:
+      - GRAPHITE_DEBUG=0
+      - COLLECTD=1
+      - GRAPHITE_TIME_ZONE=Europe/Berlin
+      - RELAY=1
 
 volumes:
   icinga2:
